@@ -5,4 +5,5 @@ __pycache__/
 .env
 *.pdf
 *.txt
+!requirements.txt
 .DS_Store
