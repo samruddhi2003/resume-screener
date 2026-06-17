@@ -90,12 +90,12 @@
   </main>
 
   <script>
-    const files = new DataTransfer();
+    let fileList = [];
 
     function renderFileTags() {
       const list = document.getElementById('file-list');
       list.innerHTML = '';
-      [...files.files].forEach((f, i) => {
+      fileList.forEach((f, i) => {
         const tag = document.createElement('div');
         tag.className = 'file-tag';
         tag.innerHTML = `${f.name} <button onclick="removeFile(${i})" title="Remove">×</button>`;
@@ -104,15 +104,12 @@
     }
 
     function removeFile(index) {
-      const dt = new DataTransfer();
-      [...files.files].forEach((f, i) => { if (i !== index) dt.items.add(f); });
-      files.items.clear();
-      [...dt.files].forEach(f => files.items.add(f));
+      fileList.splice(index, 1);
       renderFileTags();
     }
 
     document.getElementById('file-input').addEventListener('change', e => {
-      [...e.target.files].forEach(f => files.items.add(f));
+      [...e.target.files].forEach(f => fileList.push(f));
       renderFileTags();
       e.target.value = '';
     });
@@ -123,7 +120,7 @@
     dropZone.addEventListener('drop', e => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      [...e.dataTransfer.files].forEach(f => files.items.add(f));
+      [...e.dataTransfer.files].forEach(f => fileList.push(f));
       renderFileTags();
     });
 
@@ -138,7 +135,7 @@
       const errorEl = document.getElementById('error');
       errorEl.style.display = 'none';
 
-      if (!files.files.length) {
+      if (!fileList.length) {
         errorEl.textContent = 'Please upload at least one resume.';
         errorEl.style.display = 'block';
         return;
@@ -150,7 +147,7 @@
 
       const fd = new FormData();
       fd.append('job_description', document.getElementById('jd').value);
-      [...files.files].forEach(f => fd.append('resumes', f));
+      fileList.forEach(f => fd.append('resumes', f));
 
       try {
         const res = await fetch('/screen', { method: 'POST', body: fd });
@@ -158,7 +155,7 @@
         const data = await res.json();
         renderResults(data.results);
       } catch (err) {
-        errorEl.textContent = err.message;
+        errorEl.textContent = err.message.includes('fetch') ? 'Could not reach server. Please try again in a moment.' : err.message;
         errorEl.style.display = 'block';
       } finally {
         btn.disabled = false;
