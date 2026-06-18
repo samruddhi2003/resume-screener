@@ -6,3 +6,6 @@ scikit-learn
 aiofiles
 groq
 python-dotenv
+langchain
+langchain-core
+langchain-groq
