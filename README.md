@@ -1,6 +1,6 @@
-# Smart Resume Screening System
+# Smart Resume Screening AI Agent
 
-A web app that compares resumes against a job description and tells you how well each candidate matches — with a score, matched skills, missing skills, and an AI chat to answer your questions.
+A web app that screens resumes against a job description using an AI agent — giving each candidate a match score, skill analysis, AI summary, and a chat interface with conversation memory.
 
 ---
 
@@ -8,22 +8,20 @@ A web app that compares resumes against a job description and tells you how well
 
 1. You paste a job description
 2. You upload one or more resumes (PDF or TXT)
-3. It gives each resume a **match score out of 100**
-4. It shows which skills matched and which are missing
-5. You can chat with an AI to ask things like *"Why is this score low?"* or *"Who is the best candidate?"*
+3. An AI agent screens each resume and returns:
+   - A **match score out of 100**
+   - **Matched** and **missing** skills
+   - An AI-generated **candidate summary** with strengths, weaknesses, and a recommendation (Interview / Maybe / Reject)
+4. You can **chat** with the AI to ask follow-up questions — it remembers the conversation history
 
 ---
 
 ## How the Score Works
 
-The score is a mix of two things:
-
 | What | Weight | How |
 |---|---|---|
 | Skill match | 60% | How many skills from the JD appear in the resume |
-| Text similarity | 40% | How similar the overall text is (using TF-IDF) |
-
-So if a resume matches 4 out of 5 required skills, it starts with a strong base score.
+| Text similarity | 40% | TF-IDF cosine similarity between JD and resume text |
 
 **Score colors:**
 - 🟢 Green — 60% and above (strong match)
@@ -36,13 +34,15 @@ So if a resume matches 4 out of 5 required skills, it starts with a strong base 
 
 | Tool | What it does |
 |---|---|
-| **FastAPI** | Runs the backend server and API |
-| **pdfplumber** | Reads text out of PDF resumes |
-| **scikit-learn** | Calculates text similarity score (TF-IDF) |
-| **Regex** | Finds skills and experience in resume text |
-| **Groq (LLaMA 3.3 70B)** | Powers the AI chat feature |
-| **python-dotenv** | Loads the API key from the `.env` file |
-| **HTML/CSS/JS** | The frontend UI (no React, no build step needed) |
+| **FastAPI** | Backend server and API endpoints |
+| **pdfplumber** | Extracts text from PDF resumes |
+| **scikit-learn** | TF-IDF text similarity scoring |
+| **Regex** | Skill and experience extraction |
+| **LangChain + LangGraph** | AI agent with tool calling (`create_react_agent`) |
+| **langchain-groq** | Connects LangChain to Groq's LLaMA model |
+| **Groq (LLaMA 3.3 70B)** | Powers chat, candidate summary, and explanations |
+| **python-dotenv** | Loads API key from `.env` |
+| **HTML/CSS/JS** | Frontend UI (no framework, mobile-friendly) |
 | **uvicorn** | Runs the FastAPI app locally |
 
 ---
@@ -51,16 +51,19 @@ So if a resume matches 4 out of 5 required skills, it starts with a strong base 
 
 ```
 resume screening/
-├── main.py            → starts the server, defines all endpoints
-├── resume_parser.py   → reads PDFs/TXTs, finds skills and experience
-├── matcher.py         → calculates the match score and explanation
-├── chat.py            → sends questions to the Groq AI and returns answers
-├── requirements.txt   → list of packages to install
-├── .env               → your Groq API key (never share this)
-├── .gitignore         → files to exclude from GitHub
+├── main.py            → FastAPI server, defines /screen and /chat endpoints
+├── agent.py           → LangGraph AI agent with 3 tools (parse, match, explain)
+├── agent_memory.py    → Stores conversation history for chat context
+├── resume_parser.py   → Reads PDFs/TXTs, extracts skills and experience
+├── matcher.py         → Calculates match score (TF-IDF + skill match)
+├── chat.py            → AI chat with memory + candidate summary generation
+├── requirements.txt   → Python dependencies
+├── render.yaml        → Render deployment config
+├── .env               → Your Groq API key (never share this)
+├── .gitignore         → Files excluded from GitHub
 ├── README.md
 └── static/
-    └── index.html     → the frontend UI
+    └── index.html     → Frontend UI
 ```
 
 ---
@@ -74,7 +77,7 @@ pip install -r requirements.txt
 
 **2. Add your Groq API key**
 
-Get a free key at https://console.groq.com, then open `.env` and replace the placeholder:
+Get a free key at https://console.groq.com, then open `.env`:
 ```
 GROQ_API_KEY=your_groq_api_key_here
 ```
@@ -97,12 +100,21 @@ http://127.0.0.1:8000
 |---|---|---|
 | GET | `/` | Opens the UI |
 | POST | `/screen` | Screens resumes against a job description |
-| POST | `/chat` | Asks the AI a question about the results |
+| POST | `/chat` | Asks the AI a question with conversation memory |
+
+---
+
+## Deployment
+
+Deployed on **Render**: https://resume-screener-9fg9.onrender.com
+
+> Note: Free tier spins down after inactivity — first request may take ~30 seconds.
 
 ---
 
 ## Limitations
 
-- Only detects skills from a fixed list of ~50 keywords — "ReactJS" won't match "react"
-- Experience is guessed from patterns like "3 years of experience" — unusual formats may be missed
+- Detects skills from a fixed list of ~50 keywords — variations like "ReactJS" won't match "react"
+- Experience extracted from patterns like "3 years of experience" — unusual formats may be missed
 - Not fully semantic — "Developer" and "Engineer" won't match even if they mean the same thing
+- Conversation memory is in-memory only — resets when the server restarts
